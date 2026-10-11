@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EduMentor - Admin Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; font-family: Arial, sans-serif; }
+  body { margin: 0; display: flex; background: #f5f6f8; }
+  .sidebar { width: 220px; background: #241242; color: white; min-height: 100vh; padding: 20px 0; position: fixed; top: 0; left: 0; }
+  .sidebar h2 { padding: 0 20px; margin-bottom: 30px; }
+  .sidebar a { display: block; padding: 12px 20px; color: white; text-decoration: none; cursor: pointer; }
+  .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.15); }
+  .main { margin-left: 220px; flex: 1; padding: 30px; width: 100%; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .header h1 { font-size: 22px; margin-bottom: 20px; }
+  .cards { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+  .card { background: white; border-radius: 10px; padding: 20px; flex: 1; min-width: 180px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .card .label { color: #666; font-size: 13px; margin-bottom: 6px; }
+  .card .value { font-size: 26px; font-weight: bold; }
+  .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
+  .charts-row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .charts-row .panel { flex: 1; min-width: 280px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: #666; font-size: 13px; padding: 8px; border-bottom: 1px solid #eee; }
+  td { padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .note { background: #fff8e1; border-left: 4px solid #f9a825; padding: 10px 15px; font-size: 13px; margin-top: 10px; color: #665; }
+  ul.reports { list-style: none; padding: 0; }
+  ul.reports li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  ul.reports li a { color: #241242; font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>EduMentor</h2>
+  <a onclick="showSection('dashboard', this)" class="active">Dashboard</a>
+  <a onclick="showSection('departments', this)">Departments</a>
+  <a onclick="showSection('students', this)">Students</a>
+  <a onclick="showSection('faculty', this)">Faculty</a>
+  <a onclick="showSection('analytics', this)">Analytics</a>
+  <a onclick="showSection('reports', this)">Reports</a>
+  <a href="/">Logout</a>
+</div>
+
+<div class="main">
+  <div class="header" style="display:flex; justify-content:space-between; align-items:center;">
+    <h1>Welcome, Admin</h1>
+    <span style="background:#241242; color:white; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;">ADMIN</span>
+  </div>
+
+  <div id="dashboard" class="section active">
+    <div class="cards">
+      <div class="card">
+        <div class="label">Total Students</div>
+        <div class="value">{{ total_students }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Average Performance</div>
+        <div class="value">{{ avg_cgpa10 }} / 10</div>
+      </div>
+      <div class="card">
+        <div class="label">Departments</div>
+        <div class="value">{{ dept_count }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Overall Attendance</div>
+        <div class="value">{{ avg_attendance }}%</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Recent Reports</h3>
+      <ul class="reports">
+        {% for r in reports %}
+        <li>{{ r[0] }} <a href="{{ r[1] }}">Download</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div id="departments" class="section">
+    <div class="charts-row">
+      <div class="panel">
+        <h3>Department Performance (Average CGPA, out of 10)</h3>
+        <canvas id="deptChart" height="180"></canvas>
+        <div class="note">Department assignment is randomly simulated — the source dataset only records a single program (BCSE), with no real department field.</div>
+      </div>
+      <div class="panel" style="max-width:320px;">
+        <h3>Overall Attendance</h3>
+        <canvas id="attendanceDonut" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Department Overview</h3>
+      <table>
+        <tr><th>Department</th><th>Students</th><th>Avg Attendance</th><th>Avg CGPA (/10)</th></tr>
+        {% for d in dept_perf %}
+        <tr>
+          <td>{{ d.department_name }}</td>
+          <td>{{ d.total }}</td>
+          <td>{{ d.avg_att_rounded }}%</td>
+          <td>{{ d.avg_cgpa10 }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+
+  <div id="students" class="section">
+    <div class="panel">
+      <h3>All Students (page {{ page }} of {{ total_pages }})</h3>
+      <table>
+        <tr><th>ID</th><th>Name</th><th>Department</th><th>Attendance</th><th>CGPA</th></tr>
+        {% for s in all_students %}
+        <tr>
+          <td>{{ s.student_id }}</td>
+          <td>{{ s.student_name }}</td>
+          <td>{{ s.department_name }}</td>
+          <td>{{ s.attendance_pct }}%</td>
+          <td>{{ s.cgpa10 }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div style="display:flex; justify-content:space-between; margin-top:12px;">
+        {% if page > 1 %}
+        <a href="/admin?page={{ page - 1 }}">&larr; Previous</a>
+        {% else %}
+        <span></span>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="/admin?page={{ page + 1 }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div id="faculty" class="section">
+    <div class="panel">
+      <h3>All Faculty</h3>
+      <table>
+        <tr><th>Name</th><th>Department</th></tr>
+        {% for f in all_faculty %}
+        <tr><td>{{ f.faculty_name }}</td><td>{{ f.department_name }}</td></tr>
+        {% endfor %}
+      </table>
+      <div class="note">Faculty records are synthetic — the source dataset has no real faculty data.</div>
+    </div>
+  </div>
+
+  <div id="analytics" class="section">
+    <div class="panel">
+      <h3>Engagement Pattern Analysis (Deep Learning Model Output)</h3>
+      <canvas id="engagementChart" height="180"></canvas>
+      <div class="note">This is real model output — a neural network classifies every student's engagement level from actual study hours, social media use, and attendance data.</div>
+    </div>
+  </div>
+
+  <div id="reports" class="section">
+    <div class="panel">
+      <h3>Institution Reports</h3>
+      <ul class="reports">
+        {% for r in reports %}
+        <li>{{ r[0] }} <a href="{{ r[1] }}">Download</a></li>
+        {% endfor %}
+      </ul>
+      <div class="note">Both reports pull live data from MySQL at the moment you click Download.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  el.classList.add('active');
+}
+
+const ctx = document.getElementById('deptChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: {{ dept_perf | map(attribute='department_name') | list | tojson }},
+    datasets: [{
+      label: 'Average CGPA (out of 10)',
+      data: {{ dept_cgpa10_list | tojson }},
+      backgroundColor: '#241242',
+    }]
+  },
+  options: {
+    scales: {
+      y: { min: 0, max: 10 },
+      x: { ticks: { maxRotation: 0, minRotation: 0 } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+const donutCtx = document.getElementById('attendanceDonut').getContext('2d');
+new Chart(donutCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Present', 'Absent'],
+    datasets: [{
+      data: [{{ avg_attendance }}, {{ 100 - avg_attendance }}],
+      backgroundColor: ['#241242', '#e0e0e0'],
+    }]
+  },
+  options: {
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+const engCtx = document.getElementById('engagementChart').getContext('2d');
+new Chart(engCtx, {
+  type: 'bar',
+  data: {
+    labels: {{ engagement_counts | map(attribute='engagement_level') | list | tojson }},
+    datasets: [{
+      label: 'Number of Students',
+      data: {{ engagement_counts | map(attribute='total') | list | tojson }},
+      backgroundColor: ['#d9534f', '#f0ad4e', '#2e7d32'],
+    }]
+  },
+  options: {
+    scales: { x: { ticks: { maxRotation: 0, minRotation: 0 } } },
+    plugins: { legend: { display: false } }
+  }
+});
+</script>
+
+</body>
+</html>

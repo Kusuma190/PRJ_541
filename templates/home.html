@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EduMentor - Login</title>
+<style>
+  * { box-sizing: border-box; font-family: Arial, sans-serif; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #1f2937;
+  }
+  .card {
+    background: white; padding: 40px; border-radius: 12px; width: 380px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  .card h1 { color: #1f2937; margin-bottom: 4px; }
+  .card p.sub { color: #666; font-size: 14px; margin-bottom: 24px; }
+  .role-btn {
+    display: block; width: 100%; padding: 12px 16px; margin-bottom: 12px;
+    border-radius: 8px; border: none; color: white; font-size: 15px; font-weight: 600;
+    cursor: pointer; text-align: left; text-decoration: none;
+  }
+  .role-btn.student { background: #1b4332; }
+  .role-btn.faculty { background: #1a3e8c; }
+  .role-btn.admin { background: #241242; }
+  .role-btn:hover { opacity: 0.9; }
+  .student-input {
+    display: flex; gap: 8px; margin-bottom: 12px;
+  }
+  .student-input input {
+    flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px;
+  }
+  .student-input button {
+    padding: 10px 16px; border-radius: 8px; border: none; background: #1b4332;
+    color: white; font-weight: 600; cursor: pointer;
+  }
+  .hint { font-size: 12px; color: #999; margin-top: -6px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>EduMentor</h1>
+    <p class="sub">Select how you'd like to sign in</p>
+
+    <div class="student-input">
+      <input type="text" id="studentId" placeholder="Enter Roll No (e.g. S1000)" value="S1000">
+      <button onclick="goToStudent()">Go</button>
+    </div>
+    <div class="hint">Student login — enter a roll number from S1000 to S2193</div>
+
+    <a class="role-btn faculty" href="/faculty">Continue as Faculty</a>
+    <a class="role-btn admin" href="/admin">Continue as Admin</a>
+  </div>
+
+  <script>
+    function goToStudent() {
+      const id = document.getElementById('studentId').value.trim();
+      if (id) {
+        window.location.href = '/student/' + encodeURIComponent(id);
+      }
+    }
+  </script>
+</body>
+</html>

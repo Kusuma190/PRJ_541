@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EduMentor - Student Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; font-family: Arial, sans-serif; }
+  body { margin: 0; display: flex; background: #f5f6f8; }
+  .sidebar { width: 220px; background: #1b4332; color: white; min-height: 100vh; padding: 20px 0; position: fixed; top: 0; left: 0; }
+  .sidebar h2 { padding: 0 20px; margin-bottom: 30px; }
+  .sidebar a { display: block; padding: 12px 20px; color: white; text-decoration: none; cursor: pointer; }
+  .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.15); }
+  .main { margin-left: 220px; flex: 1; padding: 30px; width: 100%; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .header { margin-bottom: 20px; }
+  .header h1 { font-size: 22px; margin-bottom: 4px; }
+  .header .roll { color: #666; font-size: 14px; }
+  .cards { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+  .card { background: white; border-radius: 10px; padding: 20px; flex: 1; min-width: 180px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .card .label { color: #666; font-size: 13px; margin-bottom: 6px; }
+  .card .value { font-size: 26px; font-weight: bold; }
+  .card .sub { font-size: 13px; color: #888; margin-top: 4px; }
+  .panel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: #666; font-size: 13px; padding: 8px; border-bottom: 1px solid #eee; }
+  td { padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .note { background: #fff8e1; border-left: 4px solid #f9a825; padding: 10px 15px; font-size: 13px; margin-top: 10px; color: #665; }
+  ul.improve { padding-left: 20px; }
+  ul.improve li { margin-bottom: 10px; font-size: 14px; line-height: 1.5; color: #333; }
+  ul.notif { list-style: none; padding: 0; }
+  ul.notif li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  ul.notif li span.time { color: #999; font-size: 13px; }
+  .profile-row { display: flex; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .profile-row .label { width: 180px; color: #666; font-size: 14px; }
+  .profile-row .value { font-size: 14px; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>EduMentor</h2>
+  <a onclick="showSection('dashboard', this)" class="active">Dashboard</a>
+  <a onclick="showSection('profile', this)">Profile</a>
+  <a onclick="showSection('attendance', this)">Attendance</a>
+  <a onclick="showSection('marks', this)">Marks</a>
+  <a onclick="showSection('performance', this)">Performance</a>
+  <a onclick="showSection('timetable', this)">Timetable</a>
+  <a onclick="showSection('notifications', this)">Notifications</a>
+  <a href="/">Logout</a>
+</div>
+
+<div class="main">
+  <div class="header">
+    <h1>Welcome, {{ student.student_name }}</h1>
+    <div class="roll">Roll No: {{ student.student_id }} | Department: {{ student.department_name }}</div>
+  </div>
+
+  <div id="dashboard" class="section active">
+    <div class="cards">
+      <div class="card">
+        <div class="label">Attendance</div>
+        <div class="value">{{ student.attendance_pct }}%</div>
+        <div class="sub">{{ "Good" if student.attendance_pct >= 75 else "Low" }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Average Marks</div>
+        <div class="value">{{ avg_marks }}%</div>
+        <div class="sub">Across all courses</div>
+      </div>
+      <div class="card">
+        <div class="label">CGPA</div>
+        <div class="value">{{ cgpa10 }}</div>
+        <div class="sub">{{ cgpa_label }} (out of 10)</div>
+      </div>
+      <div class="card">
+        <div class="label">Risk Status</div>
+        <div class="value" style="color:{{ '#d9534f' if student.risk_prediction else '#2e7d32' }}">
+          {{ "At Risk" if student.risk_prediction else "On Track" }}
+        </div>
+        <div class="sub">Model prediction</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Recent Notifications</h3>
+      <ul class="notif">
+        {% for n in notifications[:3] %}
+        <li>{{ n[0] }} <span class="time">{{ n[1] }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div id="profile" class="section">
+    <div class="panel">
+      <h3>Student Profile</h3>
+      <div class="profile-row"><div class="label">Full Name</div><div class="value">{{ student.student_name }}</div></div>
+      <div class="profile-row"><div class="label">Roll Number</div><div class="value">{{ student.student_id }}</div></div>
+      <div class="profile-row"><div class="label">Department</div><div class="value">{{ student.department_name }}</div></div>
+      <div class="profile-row"><div class="label">Current Semester</div><div class="value">{{ student.current_semester }}</div></div>
+      <div class="profile-row"><div class="label">Gender</div><div class="value">{{ student.gender }}</div></div>
+      <div class="profile-row"><div class="label">Age</div><div class="value">{{ student.age }}</div></div>
+      <div class="profile-row"><div class="label">Credits Completed</div><div class="value">{{ student.credits_completed }}</div></div>
+      <div class="profile-row"><div class="label">Engagement Level</div><div class="value">{{ student.engagement_level }}</div></div>
+      <div class="note">Roll number and name are demo identifiers generated for this project — the source dataset contains no real student names or IDs.</div>
+    </div>
+  </div>
+
+  <div id="attendance" class="section">
+    <div class="panel">
+      <h3>Overall Attendance</h3>
+      <p style="font-size:32px; font-weight:bold; margin:10px 0;">{{ student.attendance_pct }}%</p>
+    </div>
+    <div class="panel">
+      <h3>Attendance by Course</h3>
+      <table>
+        <tr><th>Course</th><th>Attendance</th><th>Status</th></tr>
+        {% for c in course_attendance %}
+        <tr>
+          <td>{{ c.course_name }}</td>
+          <td>{{ c.attendance_pct }}%</td>
+          <td>{{ "Good" if c.attendance_pct >= 75 else "Low" }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div class="note">Per-course figures are simulated for this demo — the source dataset only records overall attendance, not per-subject.</div>
+    </div>
+  </div>
+
+  <div id="marks" class="section">
+    <div class="panel">
+      <h3>Marks by Course</h3>
+      <table>
+        <tr><th>Course</th><th>Marks</th><th>Grade</th></tr>
+        {% for m in course_marks %}
+        <tr>
+          <td>{{ m.course_name }}</td>
+          <td>{{ m.marks }}%</td>
+          <td>{{ "A" if m.marks >= 80 else ("B" if m.marks >= 65 else ("C" if m.marks >= 50 else "D")) }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div class="note">Marks are simulated for this demo, generated from the student's CGPA — the source dataset has no real per-subject marks.</div>
+    </div>
+  </div>
+
+  <div id="performance" class="section">
+    <div class="panel">
+      <h3>Performance Overview</h3>
+      <p><strong>CGPA:</strong> {{ cgpa10 }} / 10 ({{ cgpa_label }})</p>
+      <p><strong>Credits Completed:</strong> {{ student.credits_completed }}</p>
+      <p><strong>Risk Prediction:</strong> {{ "At Risk" if student.risk_prediction else "On Track" }}</p>
+      <p><strong>Engagement Level:</strong> {{ student.engagement_level }}</p>
+    </div>
+
+    <div class="panel">
+      <h3>SGPA Trend (Semester 1 to Current)</h3>
+      <canvas id="sgpaChart" height="90"></canvas>
+      <div class="note">Earlier semester points are simulated for trend illustration — only the "Current" point reflects a value derived from the source dataset.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Where This Student Can Improve</h3>
+      <ul class="improve">
+        {% for item in improvements %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+      <div class="note">Generated by comparing this student's habits against real class averages from MySQL.</div>
+    </div>
+  </div>
+
+  <div id="timetable" class="section">
+    <div class="panel">
+      <h3>Weekly Timetable</h3>
+      <table>
+        <tr><th>Day</th><th>Time</th><th>Subject</th><th>Room</th></tr>
+        {% for t in timetable %}
+        <tr><td>{{ t[0] }}</td><td>{{ t[1] }}</td><td>{{ t[2] }}</td><td>{{ t[3] }}</td></tr>
+        {% endfor %}
+      </table>
+      <div class="note">Sample schedule for demo purposes — not from the source dataset.</div>
+    </div>
+  </div>
+
+  <div id="notifications" class="section">
+    <div class="panel">
+      <h3>All Notifications</h3>
+      <ul class="notif">
+        {% for n in notifications %}
+        <li>{{ n[0] }} <span class="time">{{ n[1] }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  el.classList.add('active');
+}
+
+const ctx = document.getElementById('sgpaChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: {{ sgpa_history | map(attribute='semester_label') | list | tojson }},
+    datasets: [{
+      label: 'SGPA (out of 10)',
+      data: {{ sgpa_history | map(attribute='sgpa') | list | tojson }},
+      borderColor: '#1b4332',
+      backgroundColor: '#1b4332',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 5,
+    }]
+  },
+  options: {
+    scales: { y: { min: 0, max: 10 } },
+    plugins: { legend: { display: false } }
+  }
+});
+</script>
+
+</body>
+</html>
