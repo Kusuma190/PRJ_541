@@ -3,7 +3,7 @@ import os
 # This checks if the project is running online (Render) or locally on your PC
 if os.environ.get('DB_HOST'):
     raw_host = os.environ.get('DB_HOST', '')
-    # Grab only the text before any colon symbol safely
+    # Safely extract the plain string text before the colon
     clean_host = raw_host.split(':')[0]
     
     DB_CONFIG = {
@@ -12,10 +12,10 @@ if os.environ.get('DB_HOST'):
         "user": os.environ.get('DB_USER'),
         "password": os.environ.get('DB_PASSWORD'),
         "database": os.environ.get('DB_NAME'),
-        "ssl_disabled": False  # Enforces a secure SSL connection on Aiven
+        "ssl_disabled": False
     }
 else:
-    # This falls back to your local PC parameters if you run it at home
+    # This keeps your exact local host configuration working perfectly on your PC
     DB_CONFIG = {
         "host": "localhost",
         "user": "root",
