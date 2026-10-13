@@ -28,9 +28,6 @@
   th { text-align: left; color: #666; font-size: 13px; padding: 8px; border-bottom: 1px solid #eee; }
   td { padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   .note { background: #fff8e1; border-left: 4px solid #f9a825; padding: 10px 15px; font-size: 13px; margin-top: 10px; color: #665; }
-  ul.notif { list-style: none; padding: 0; }
-  ul.notif li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-  ul.notif li a { color: #1a3e8c; font-weight: 600; text-decoration: none; }
 </style>
 </head>
 <body>
@@ -39,25 +36,21 @@
   <h2>EduMentor</h2>
   <a onclick="showSection('dashboard', this)" class="active">Dashboard</a>
   <a onclick="showSection('myclasses', this)">My Classes</a>
-  <a onclick="showSection('attendance', this)">Attendance</a>
   <a onclick="showSection('students', this)">Students</a>
   <a onclick="showSection('reports', this)">Reports</a>
-  <a href="/">Logout</a>
+   <a href="/logout">Logout</a>
 </div>
 
 <div class="main">
   <div class="header">
     <h1>Welcome, Dr. Faculty ({{ dept_name }} Department)</h1>
-    <div style="display:flex; align-items:center; gap:14px;">
-      <span style="background:#1a3e8c; color:white; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;">FACULTY</span>
-      <form method="get">
-        <select name="dept" onchange="this.form.submit()">
-          {% for d in all_departments %}
-          <option value="{{ d }}" {{ "selected" if d == dept_name else "" }}>{{ d }}</option>
-          {% endfor %}
-        </select>
-      </form>
-    </div>
+    <form method="get">
+      <select name="dept" onchange="this.form.submit()">
+        {% for d in all_departments %}
+        <option value="{{ d }}" {{ "selected" if d == dept_name else "" }}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </form>
   </div>
 
   <div id="dashboard" class="section active">
@@ -75,30 +68,7 @@
         <div class="value" style="color:#d9534f;">{{ stats.at_risk or 0 }}</div>
       </div>
     </div>
-    <div class="panel">
-      <h3>Quick Summary</h3>
-      <p style="color:#444; line-height:1.6;">
-        {{ dept_name }} has {{ stats.total }} students with an average attendance of {{ avg_att }}%.
-        {{ stats.at_risk or 0 }} students are currently flagged at-risk by the prediction model —
-        see the Attendance tab for details, or export a report from the Reports tab.
-      </p>
-    </div>
-  </div>
 
-  <div id="myclasses" class="section">
-    <div class="panel">
-      <h3>My Classes ({{ dept_name }})</h3>
-      <table>
-        <tr><th>Course</th><th>Faculty</th></tr>
-        {% for c in my_classes %}
-        <tr><td>{{ c.course_name }}</td><td>{{ c.faculty_name }}</td></tr>
-        {% endfor %}
-      </table>
-      <div class="note">Courses and faculty assignments are synthetic — the source dataset has a single program with no course-level structure.</div>
-    </div>
-  </div>
-
-  <div id="attendance" class="section">
     <div class="charts-row">
       <div class="panel">
         <h3>Class Performance</h3>
@@ -128,9 +98,22 @@
     </div>
   </div>
 
+  <div id="myclasses" class="section">
+    <div class="panel">
+      <h3>My Classes ({{ dept_name }})</h3>
+      <table>
+        <tr><th>Course</th><th>Faculty</th></tr>
+        {% for c in my_classes %}
+        <tr><td>{{ c.course_name }}</td><td>{{ c.faculty_name }}</td></tr>
+        {% endfor %}
+      </table>
+      <div class="note">Courses and faculty assignments are synthetic — the source dataset has a single program with no course-level structure.</div>
+    </div>
+  </div>
+
   <div id="students" class="section">
     <div class="panel">
-      <h3>Students in {{ dept_name }} (page {{ page }} of {{ total_pages }})</h3>
+      <h3>Students in {{ dept_name }} (showing first 20)</h3>
       <table>
         <tr><th>ID</th><th>Name</th><th>Attendance</th><th>CGPA</th><th>Engagement</th></tr>
         {% for s in dept_students %}
@@ -143,27 +126,18 @@
         </tr>
         {% endfor %}
       </table>
-      <div style="display:flex; justify-content:space-between; margin-top:12px;">
-        {% if page > 1 %}
-        <a href="/faculty?dept={{ dept_name }}&page={{ page - 1 }}">&larr; Previous</a>
-        {% else %}
-        <span></span>
-        {% endif %}
-        {% if page < total_pages %}
-        <a href="/faculty?dept={{ dept_name }}&page={{ page + 1 }}">Next &rarr;</a>
-        {% endif %}
-      </div>
     </div>
   </div>
 
   <div id="reports" class="section">
     <div class="panel">
       <h3>Reports</h3>
-      <ul class="notif">
-        <li>Attendance Summary — full attendance & risk status for {{ dept_name }} <a href="/faculty/export/attendance?dept={{ dept_name }}">Download CSV</a></li>
-        <li>At-Risk Students Report — students flagged by the model in {{ dept_name }} <a href="/faculty/export/at_risk?dept={{ dept_name }}">Download CSV</a></li>
+      <ul>
+        <li>Monthly Class Performance Report</li>
+        <li>Attendance Summary</li>
+        <li>At-Risk Students Report</li>
       </ul>
-      <div class="note">Both reports are generated live from the current MySQL data for the selected department.</div>
+      <div class="note">Report generation/export is a placeholder for this demo phase.</div>
     </div>
   </div>
 
@@ -176,12 +150,11 @@ function showSection(id, el) {
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
   el.classList.add('active');
 }
-
 const courseCtx = document.getElementById('courseChart').getContext('2d');
 new Chart(courseCtx, {
   type: 'bar',
   data: {
-    labels: {{ course_labels | tojson }},
+    labels: {{ course_perf | map(attribute='course_name') | list | tojson }},
     datasets: [{
       label: 'Average Attendance %',
       data: {{ course_perf | map(attribute='avg_att') | list | tojson }},
@@ -189,10 +162,7 @@ new Chart(courseCtx, {
     }]
   },
   options: {
-    scales: {
-      y: { min: 0, max: 100 },
-      x: { ticks: { maxRotation: 0, minRotation: 0 } }
-    },
+    scales: { y: { min: 0, max: 100 } },
     plugins: { legend: { display: false } }
   }
 });
