@@ -8,7 +8,7 @@ if os.environ.get('DB_HOST'):
         "user": os.environ.get('DB_USER'),
         "password": os.environ.get('DB_PASSWORD'),
         "database": os.environ.get('DB_NAME'),
-        "ssl_mode": "REQUIRED"
+        "ssl_disabled": False  # Enforces a secure SSL connection on Aiven
     }
 else:
     # This falls back to your local PC parameters if you run it at home
