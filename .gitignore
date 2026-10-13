@@ -1,5 +1,4 @@
 .env
 *.pem
 edumentor_dump.sql
-models/
 __pycache__/
