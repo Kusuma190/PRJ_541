@@ -2,9 +2,9 @@ import os
 
 # This checks if the project is running online (Render) or locally on your PC
 if os.environ.get('DB_HOST'):
-    # Clean the host string in case Render passes the port inside it
     raw_host = os.environ.get('DB_HOST', '')
-    clean_host = raw_host.split(':')[0] # This chops off any trailing port numbers
+    # Grab only the text before any colon symbol safely
+    clean_host = raw_host.split(':')[0]
     
     DB_CONFIG = {
         "host": clean_host,
