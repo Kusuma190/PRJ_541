@@ -1,9 +1,9 @@
 import os
 
-# This checks if the project is running online (Render) or locally on your PC
+# Checks if running on Render online
 if os.environ.get('DB_HOST'):
     raw_host = os.environ.get('DB_HOST', '')
-    # Safely extract the plain string text before the colon
+    # Safely splits the string and takes just the text before the colon
     clean_host = raw_host.split(':')[0]
     
     DB_CONFIG = {
@@ -15,10 +15,10 @@ if os.environ.get('DB_HOST'):
         "ssl_disabled": False
     }
 else:
-    # This keeps your exact local host configuration working perfectly on your PC
+    # This RESTORES your exact local setup for your PC completely
     DB_CONFIG = {
         "host": "localhost",
         "user": "root",
-        "password": "root123", 
+        "password": "root123",
         "database": "edumentor"
     }
