@@ -11,6 +11,7 @@ from db_config import DB_CONFIG
 
 os.makedirs("models", exist_ok=True)
 
+# Connect using the cloud configuration dictionary
 conn = mysql.connector.connect(**DB_CONFIG)
 df = pd.read_sql("SELECT * FROM students", conn)
 conn.close()
@@ -68,5 +69,4 @@ joblib.dump(mlp, "models/engagement_model.pkl")
 joblib.dump(scaler, "models/engagement_scaler.pkl")
 joblib.dump(engagement_features, "models/engagement_features.pkl")
 print("Saved engagement_model.pkl and engagement_scaler.pkl")
-
-print("\nAll models saved to the 'models' folder. These will be loaded by app.py for live predictions on new registrations.")
+print("All models saved successfully.")
