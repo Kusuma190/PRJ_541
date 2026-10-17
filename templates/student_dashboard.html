@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EduMentor - Student Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -35,9 +36,60 @@
   .profile-row { display: flex; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
   .profile-row .label { width: 180px; color: #666; font-size: 14px; }
   .profile-row .value { font-size: 14px; font-weight: 500; }
+
+  .muted { color: #777; font-size: 13px; }
+  .factor { margin-bottom: 14px; }
+  .factor-head { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; margin-bottom: 5px; flex-wrap: wrap; }
+  .tag { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 12px; white-space: nowrap; }
+  .tag.up { background: #fde2e2; color: #a33; }
+  .tag.down { background: #e2f3e6; color: #2e7d32; }
+  .bar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+  .bar.big { height: 14px; border-radius: 7px; }
+  .bar .fill { height: 100%; border-radius: 4px; }
+  .fill.up { background: #d9534f; }
+  .fill.down { background: #2e7d32; }
+  .slider-row { margin: 16px 0; }
+  .slider-row label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+  input[type=range] { width: 100%; accent-color: #1b4332; }
+  .sim-btn { background: #1b4332; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px; }
+  ul.advice { padding-left: 20px; margin: 8px 0; }
+  ul.advice li { margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+
+  /* ---------- Responsive layout (phones and tablets) ---------- */
+  .topbar { display: none; }
+  .scrim { display: none; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart-box { position: relative; width: 100%; height: 280px; }
+  .sidebar { overflow-y: auto; }
+  @media (max-width: 768px) {
+    body { display: block; }
+    .topbar { display: flex; align-items: center; gap: 12px; position: fixed; top: 0; left: 0; right: 0;
+              height: 54px; padding: 0 14px; background: #1b4332; color: white; z-index: 30; }
+    .topbar button { background: none; border: 1px solid rgba(255,255,255,0.6); color: white; font-size: 20px;
+                     line-height: 1; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+    .topbar .brand { font-weight: bold; font-size: 18px; }
+    .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; width: 250px; z-index: 40; }
+    .sidebar.open { transform: translateX(0); }
+    .scrim.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 35; }
+    .main { margin-left: 0; padding: 70px 14px 24px; width: 100%; }
+    .header { flex-wrap: wrap; gap: 8px; }
+    .header h1 { font-size: 18px; }
+    .cards { gap: 12px; margin-bottom: 18px; }
+    .card { min-width: 140px; padding: 14px; }
+    .card .value { font-size: 22px; }
+    .panel { padding: 14px; margin-bottom: 18px; }
+    .charts-row .panel { min-width: 100%; max-width: 100% !important; }
+    .chart-box { height: 240px; }
+    .profile-row .label { width: 110px; }
+    th, td { padding: 6px; font-size: 13px; white-space: nowrap; }
+    ul.notif li { flex-direction: column; gap: 2px; }
+    ul.reports li { flex-direction: column; gap: 4px; }
+  }
 </style>
 </head>
 <body>
+<div class="topbar"><button type="button" aria-label="Menu" onclick="toggleMenu()">&#9776;</button><span class="brand">EduMentor</span></div>
+<div class="scrim" id="scrim" onclick="toggleMenu()"></div>
 
 <div class="sidebar">
   <h2>EduMentor</h2>
@@ -46,15 +98,19 @@
   <a onclick="showSection('attendance', this)">Attendance</a>
   <a onclick="showSection('marks', this)">Marks</a>
   <a onclick="showSection('performance', this)">Performance</a>
+  <a onclick="showSection('whatif', this)">What-If Simulator</a>
   <a onclick="showSection('timetable', this)">Timetable</a>
   <a onclick="showSection('notifications', this)">Notifications</a>
-   <a href="/logout">Logout</a>
+  <a href="/logout">Logout</a>
 </div>
 
 <div class="main">
-  <div class="header">
-    <h1>Welcome, {{ student.student_name }}</h1>
-    <div class="roll">Roll No: {{ student.student_id }} | Department: {{ student.department_name }}</div>
+  <div class="header" style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h1>Welcome, {{ student.student_name }}</h1>
+      <div class="roll">Roll No: {{ student.student_id }} | Department: {{ student.department_name }}</div>
+    </div>
+    <span style="background:#1b4332; color:white; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;">STUDENT</span>
   </div>
 
   <div id="dashboard" class="section active">
@@ -79,7 +135,7 @@
         <div class="value" style="color:{{ '#d9534f' if student.risk_prediction else '#2e7d32' }}">
           {{ "At Risk" if student.risk_prediction else "On Track" }}
         </div>
-        <div class="sub">Model prediction</div>
+        <div class="sub">Risk score {{ risk.score }}%</div>
       </div>
     </div>
     <div class="panel">
@@ -98,7 +154,7 @@
       <div class="profile-row"><div class="label">Full Name</div><div class="value">{{ student.student_name }}</div></div>
       <div class="profile-row"><div class="label">Roll Number</div><div class="value">{{ student.student_id }}</div></div>
       <div class="profile-row"><div class="label">Department</div><div class="value">{{ student.department_name }}</div></div>
-      <div class="profile-row"><div class="label">Current Semester</div><div class="value">{{ student.current_semester }}</div></div>
+      <div class="profile-row"><div class="label">Current Semester</div><div class="value">{{ student.current_semester }} of 8</div></div>
       <div class="profile-row"><div class="label">Gender</div><div class="value">{{ student.gender }}</div></div>
       <div class="profile-row"><div class="label">Age</div><div class="value">{{ student.age }}</div></div>
       <div class="profile-row"><div class="label">Credits Completed</div><div class="value">{{ student.credits_completed }}</div></div>
@@ -114,7 +170,7 @@
     </div>
     <div class="panel">
       <h3>Attendance by Course</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Course</th><th>Attendance</th><th>Status</th></tr>
         {% for c in course_attendance %}
         <tr>
@@ -123,7 +179,7 @@
           <td>{{ "Good" if c.attendance_pct >= 75 else "Low" }}</td>
         </tr>
         {% endfor %}
-      </table>
+      </table></div>
       <div class="note">Per-course figures are simulated for this demo — the source dataset only records overall attendance, not per-subject.</div>
     </div>
   </div>
@@ -131,7 +187,7 @@
   <div id="marks" class="section">
     <div class="panel">
       <h3>Marks by Course</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Course</th><th>Marks</th><th>Grade</th></tr>
         {% for m in course_marks %}
         <tr>
@@ -140,7 +196,7 @@
           <td>{{ "A" if m.marks >= 80 else ("B" if m.marks >= 65 else ("C" if m.marks >= 50 else "D")) }}</td>
         </tr>
         {% endfor %}
-      </table>
+      </table></div>
       <div class="note">Marks are simulated for this demo, generated from the student's CGPA — the source dataset has no real per-subject marks.</div>
     </div>
   </div>
@@ -156,8 +212,8 @@
 
     <div class="panel">
       <h3>SGPA Trend (Semester 1 to Current)</h3>
-      <canvas id="sgpaChart" height="90"></canvas>
-      <div class="note">Earlier semester points are simulated for trend illustration — only the "Current" point reflects a value derived from the source dataset.</div>
+      <div class="chart-box"><canvas id="sgpaChart"></canvas></div>
+      <div class="note">Earlier semester points are simulated for trend illustration — only the latest point reflects the real previous SGPA from the source dataset.</div>
     </div>
 
     <div class="panel">
@@ -171,15 +227,77 @@
     </div>
   </div>
 
+  <div id="whatif" class="section">
+    <div class="panel">
+      <h3>Your Risk Score</h3>
+      <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+        <div style="font-size:42px; font-weight:bold; color:{{ '#d9534f' if risk.at_risk else '#2e7d32' }};">{{ risk.score }}%</div>
+        <div>
+          <div style="font-weight:600;">{{ "Above the 50% threshold: flagged At Risk" if risk.at_risk else "Below the 50% threshold: On Track" }}</div>
+          <div class="muted">This is the model's risk score, not a guaranteed probability.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>What is driving this score</h3>
+      {% for f in risk.factors %}
+      {% set w = (f.size / risk.max_size * 100) if risk.max_size else 0 %}
+      <div class="factor">
+        <div class="factor-head">
+          <span>{{ f.label }}: <b>{{ f.yours }}</b> <span class="muted">(class average {{ f.average }})</span></span>
+          <span class="tag {{ 'up' if f.direction == 'raises' else 'down' }}">{{ f.direction }} your risk</span>
+        </div>
+        <div class="bar"><div class="fill {{ 'up' if f.direction == 'raises' else 'down' }}" style="width: {{ w }}%"></div></div>
+      </div>
+      {% endfor %}
+      <div class="note">Each bar shows how far that factor is from the class average, weighted by how strongly the model uses it.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Smallest change that would lower your risk</h3>
+      {% if risk.at_risk %}
+        {% if risk.suggestions %}
+        <ul class="advice">
+          {% for s in risk.suggestions %}<li>{{ s }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p style="font-size:14px; line-height:1.5;">{{ risk.note }}</p>
+        {% endif %}
+      {% else %}
+      <p style="font-size:14px;">You are already below the risk threshold. Keep your attendance and study routine steady.</p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h3>What-if simulator</h3>
+      <p class="muted">Drag the sliders to see how your score would change. Previous SGPA, credits and social media time stay fixed.</p>
+      <div class="slider-row">
+        <label><span>Attendance</span><b id="attVal"></b></label>
+        <input type="range" id="attRange" min="0" max="100" step="0.5">
+      </div>
+      <div class="slider-row">
+        <label><span>Daily study time</span><b id="studyVal"></b></label>
+        <input type="range" id="studyRange" min="0" max="12" step="0.1">
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <div>Simulated risk score: <b id="simScore" style="font-size:20px;"></b> <span id="simStatus" class="tag"></span></div>
+        <button type="button" class="sim-btn" onclick="resetSim()">Reset</button>
+      </div>
+      <div class="bar big"><div id="simFill" class="fill"></div></div>
+      <div class="note">These are statistical associations found in survey data, not guarantees. Social media time is left out of the advice because this dataset showed no dependable link between it and risk.</div>
+    </div>
+  </div>
+
   <div id="timetable" class="section">
     <div class="panel">
       <h3>Weekly Timetable</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Day</th><th>Time</th><th>Subject</th><th>Room</th></tr>
         {% for t in timetable %}
         <tr><td>{{ t[0] }}</td><td>{{ t[1] }}</td><td>{{ t[2] }}</td><td>{{ t[3] }}</td></tr>
         {% endfor %}
-      </table>
+      </table></div>
       <div class="note">Sample schedule for demo purposes — not from the source dataset.</div>
     </div>
   </div>
@@ -198,7 +316,48 @@
 </div>
 
 <script>
+(function () {
+  const W = {{ risk.whatif | tojson }};
+  const att = document.getElementById('attRange');
+  const study = document.getElementById('studyRange');
+  if (!att || !study) return;
+  const sig = z => 1 / (1 + Math.exp(-z));
+  function update() {
+    const a = parseFloat(att.value), s = parseFloat(study.value);
+    document.getElementById('attVal').textContent = a.toFixed(1) + '%';
+    document.getElementById('studyVal').textContent = s.toFixed(1) + ' hrs';
+    const p = sig(W.fixed + W.coef_att * a + W.coef_study * s) * 100;
+    const risky = p >= 50;
+    document.getElementById('simScore').textContent = p.toFixed(1) + '%';
+    const tag = document.getElementById('simStatus');
+    tag.textContent = risky ? 'At Risk' : 'On Track';
+    tag.className = 'tag ' + (risky ? 'up' : 'down');
+    const fill = document.getElementById('simFill');
+    fill.style.width = p + '%';
+    fill.className = 'fill ' + (risky ? 'up' : 'down');
+  }
+  window.resetSim = function () {
+    att.value = Math.min(100, W.att);
+    study.value = Math.min(12, W.study);
+    update();
+  };
+  att.addEventListener('input', update);
+  study.addEventListener('input', update);
+  resetSim();
+})();
+</script>
+
+<script>
+function toggleMenu() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('scrim').classList.toggle('show');
+}
+function closeMenu() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('scrim').classList.remove('show');
+}
 function showSection(id, el) {
+  closeMenu();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
@@ -221,6 +380,7 @@ new Chart(ctx, {
     }]
   },
   options: {
+    maintainAspectRatio: false,
     scales: { y: { min: 0, max: 10 } },
     plugins: { legend: { display: false } }
   }

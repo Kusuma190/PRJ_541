@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EduMentor - Login</title>
 <style>
   * { box-sizing: border-box; font-family: Arial, sans-serif; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #1f2937; }
-  .card { background: white; padding: 40px; border-radius: 12px; width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+  .card { background: white; padding: 40px; border-radius: 12px; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
   .card h1 { color: #1f2937; margin-bottom: 4px; }
   .card p.sub { color: #666; font-size: 14px; margin-bottom: 24px; }
   input { width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; }
@@ -15,6 +16,12 @@
   .error { background: #fde2e2; color: #a33; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
   .links { margin-top: 16px; font-size: 13px; text-align: center; color: #666; }
   .links a { color: #1a3e8c; text-decoration: none; }
+  .card { width: 100%; }
+  @media (max-width: 480px) {
+    body { padding: 12px; align-items: flex-start; }
+    .card { padding: 24px 18px; margin-top: 16px; }
+    .row { flex-direction: column; gap: 0; }
+  }
 </style>
 </head>
 <body>

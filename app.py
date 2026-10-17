@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, Response, session, redirect, url_for, flash
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import math
 import mysql.connector
 import random
 import csv
@@ -8,19 +10,143 @@ import joblib
 import pandas as pd
 from functools import wraps
 from db_config import DB_CONFIG
+from semester_utils import MAX_SEMESTER, clamp_semester, build_sgpa_points
 
 app = Flask(__name__)
-app.secret_key = "k8Xp2vQ9mTz4Lw7RhN3sYb6Ud1Fc5Ae0"
+
+# The secret key signs the login cookie. It is never stored in the code: a public
+# default would let anyone forge a login. The app refuses to start without one.
+_secret = os.environ.get("SECRET_KEY")
+if not _secret:
+    raise RuntimeError(
+        "SECRET_KEY is not set. Add it to your .env file (local) "
+        "or to Render's Environment settings (deployed)."
+    )
+app.secret_key = _secret
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,    # JavaScript cannot read the login cookie
+    SESSION_COOKIE_SAMESITE="Lax",   # basic protection against cross-site requests
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0") == "1",  # HTTPS-only cookie when deployed
+)
 
 PAGE_SIZE = 20
 
 # ---------- Load trained models once at startup ----------
-risk_model = joblib.load("models/risk_model.pkl")
-risk_features = joblib.load("models/risk_features.pkl")
-sgpa_median = joblib.load("models/sgpa_median.pkl")
-engagement_model = joblib.load("models/engagement_model.pkl")
-engagement_scaler = joblib.load("models/engagement_scaler.pkl")
-engagement_features = joblib.load("models/engagement_features.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+
+
+def _load(name):
+    return joblib.load(os.path.join(MODEL_DIR, name))
+
+
+risk_model = _load("risk_model.pkl")
+risk_features = _load("risk_features.pkl")
+sgpa_median = _load("sgpa_median.pkl")
+engagement_model = _load("engagement_model.pkl")
+engagement_scaler = _load("engagement_scaler.pkl")
+engagement_features = _load("engagement_features.pkl")
+
+
+# ---------- Explainable risk: what drives a score, and what would change it ----------
+RISK_COEF = dict(zip(risk_features, (float(c) for c in risk_model.coef_[0])))
+RISK_INTERCEPT = float(risk_model.intercept_[0])
+
+# (feature, label shown to the student, value format)
+EXPLAIN_FACTORS = [
+    ("attendance_pct", "Attendance", "{:.0f}%"),
+    ("study_hours", "Daily study time", "{:.1f} hrs"),
+    ("previous_sgpa_clean", "Previous SGPA", "{:.2f} / 4.0"),
+]
+# Things a student can actually change: (feature, action, max value, rounding step, format).
+# Social-media time is deliberately NOT used for advice: in this survey data its link to risk
+# is not in the expected direction, so recommending anything about it would be misleading.
+LEVERS = [
+    ("attendance_pct", "Raise attendance", 100.0, 1.0, "{:.0f}%"),
+    ("study_hours", "Raise daily study time", 12.0, 0.5, "{:.1f} hrs"),
+]
+
+
+def _sigmoid(z):
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def explain_risk(student, means):
+    """Return the model's risk score for one student, the factors driving it, and the
+    smallest single changes (attendance or study time) that would bring it below 50%.
+    `means` maps each model feature to the class average."""
+
+    def num(value, fallback):
+        try:
+            return float(value) if value is not None else float(fallback)
+        except (TypeError, ValueError):
+            return float(fallback)
+
+    prev = student.get("previous_sgpa")
+    x = {
+        "attendance_pct": num(student.get("attendance_pct"), means["attendance_pct"]),
+        "study_hours": num(student.get("study_hours"), means["study_hours"]),
+        "social_media_hours": num(student.get("social_media_hours"), means["social_media_hours"]),
+        "credits_completed": num(student.get("credits_completed"), means["credits_completed"]),
+        "previous_sgpa_clean": num(prev if prev else None, sgpa_median),  # 0 = "no record yet"
+    }
+    logit = RISK_INTERCEPT + sum(RISK_COEF[f] * x[f] for f in risk_features)
+    at_risk = logit >= 0
+
+    factors = []
+    for feat, label, fmt in EXPLAIN_FACTORS:
+        effect = RISK_COEF[feat] * (x[feat] - float(means[feat]))
+        factors.append({
+            "label": label,
+            "yours": fmt.format(x[feat]),
+            "average": fmt.format(float(means[feat])),
+            "direction": "raises" if effect > 0 else "lowers",
+            "size": abs(effect),
+        })
+    factors.sort(key=lambda f: f["size"], reverse=True)
+    max_size = max((f["size"] for f in factors), default=0.0)
+
+    suggestions, note = [], None
+    if at_risk:
+        for feat, action, cap, step, fmt in LEVERS:
+            coef = RISK_COEF[feat]
+            if coef >= 0:
+                continue  # unexpected direction: never advise on it
+            target = math.ceil((x[feat] + (logit + 0.02) / abs(coef)) / step - 1e-9) * step
+            if target <= cap:
+                suggestions.append(
+                    f"{action} from {fmt.format(x[feat])} to {fmt.format(target)} (changing only this)")
+        if not suggestions:
+            c_att, c_study = RISK_COEF["attendance_pct"], RISK_COEF["study_hours"]
+            if c_att < 0 and c_study < 0:
+                logit_full_att = logit + c_att * (100.0 - x["attendance_pct"])
+                need = max(x["study_hours"], x["study_hours"] + (logit_full_att + 0.02) / abs(c_study))
+                need = math.ceil(need / 0.5 - 1e-9) * 0.5
+                if need <= 12.0:
+                    suggestions.append(
+                        f"Combine both: attendance of 100% and about {need:.1f} hrs of daily study")
+            if not suggestions:
+                note = ("Even full attendance and 12 hrs of daily study would not bring the score below "
+                        "the threshold. Previous SGPA is the largest factor in your score, so strong "
+                        "results in the coming semester are what move it most.")
+
+    return {
+        "score": round(_sigmoid(logit) * 100, 1),
+        "at_risk": at_risk,
+        "factors": factors,
+        "max_size": max_size,
+        "suggestions": suggestions,
+        "note": note,
+        "whatif": {
+            "fixed": RISK_INTERCEPT + sum(RISK_COEF[f] * x[f] for f in risk_features
+                                          if f not in ("attendance_pct", "study_hours")),
+            "coef_att": RISK_COEF["attendance_pct"],
+            "coef_study": RISK_COEF["study_hours"],
+            "att": x["attendance_pct"],
+            "study": x["study_hours"],
+        },
+    }
 
 
 def get_db():
@@ -129,7 +255,7 @@ def register():
             student_name = request.form.get("student_name", "").strip() or "New Student"
             gender = request.form.get("gender", "Male")
             age = int(request.form.get("age", 20))
-            current_semester = max(1, min(int(request.form.get("current_semester", 1)), 8))
+            current_semester = clamp_semester(request.form.get("current_semester", 1))
             attendance_pct = float(request.form.get("attendance_pct", 75))
             study_hours = float(request.form.get("study_hours", 2))
             social_media_hours = float(request.form.get("social_media_hours", 2))
@@ -190,11 +316,12 @@ def register():
                 (roll_no, cid, round(val, 1))
             )
 
-        # Minimal SGPA history - just the current point (no fabricated past semesters for a new live record)
-        cursor.execute(
-            "INSERT INTO sgpa_history (student_id, semester_label, sgpa) VALUES (%s, %s, %s)",
-            (roll_no, "Current", round(previous_sgpa * 2.5, 2))
-        )
+        # SGPA trend for Sem 1..N (last point is real, earlier points are simulated)
+        for label, value in build_sgpa_points(current_semester, previous_sgpa, roll_no):
+            cursor.execute(
+                "INSERT INTO sgpa_history (student_id, semester_label, sgpa) VALUES (%s, %s, %s)",
+                (roll_no, label, value)
+            )
 
         password_hash = generate_password_hash(password)
         cursor.execute(
@@ -251,9 +378,22 @@ def student_dashboard(student_id):
     """, (student_id,))
     sgpa_history = cursor.fetchall()
 
+    # An engineering programme has 8 semesters. Whatever is stored, never show more.
+    student["current_semester"] = clamp_semester(student.get("current_semester"))
+    sem = student["current_semester"]
+    expected_labels = [f"Sem {i}" for i in range(1, sem + 1)]
+    stored = {r["semester_label"]: r["sgpa"] for r in sgpa_history}
+    if len(sgpa_history) == sem and all(label in stored for label in expected_labels):
+        sgpa_history = [{"semester_label": label, "sgpa": stored[label]} for label in expected_labels]
+    else:
+        # Stored history is missing, out of range or from an older format: rebuild Sem 1..N.
+        sgpa_history = [{"semester_label": label, "sgpa": value}
+                        for label, value in build_sgpa_points(sem, student.get("previous_sgpa"), student_id)]
+
     cursor.execute("""
         SELECT AVG(attendance_pct) AS avg_att, AVG(study_hours) AS avg_study,
-               AVG(social_media_hours) AS avg_social
+               AVG(social_media_hours) AS avg_social, AVG(credits_completed) AS avg_credits,
+               AVG(CASE WHEN previous_sgpa > 0 THEN previous_sgpa END) AS avg_sgpa
         FROM students
     """)
     class_avgs = cursor.fetchone()
@@ -295,11 +435,11 @@ def student_dashboard(student_id):
     else:
         cgpa_label = "Needs Improvement"
 
-    random.seed(hash(student_id) % 1000)
-    base_marks = min(95, max(35, cgpa10 * 10 + random.uniform(-8, 8)))
+    rng = random.Random(student_id)  # stable: the same student always sees the same marks
+    base_marks = min(95, max(35, cgpa10 * 10 + rng.uniform(-8, 8)))
     course_marks = []
     for c in course_attendance:
-        val = min(100, max(30, base_marks + random.uniform(-10, 10)))
+        val = min(100, max(30, base_marks + rng.uniform(-10, 10)))
         course_marks.append({"course_name": c["course_name"], "marks": round(val, 1)})
     avg_marks = round(sum(c["marks"] for c in course_marks) / len(course_marks), 1) if course_marks else 0
 
@@ -318,8 +458,20 @@ def student_dashboard(student_id):
         ("Fee payment reminder: due in 10 days", "1 week ago"),
     ]
 
+    risk_info = explain_risk(student, {
+        "attendance_pct": class_avgs["avg_att"],
+        "study_hours": class_avgs["avg_study"],
+        "social_media_hours": class_avgs["avg_social"],
+        "credits_completed": class_avgs["avg_credits"],
+        "previous_sgpa_clean": class_avgs["avg_sgpa"],
+    })
+    # Show the same live model result everywhere on this page (stored flags can be slightly
+    # older than the model currently deployed).
+    student["risk_prediction"] = 1 if risk_info["at_risk"] else 0
+
     return render_template(
         "student_dashboard.html",
+        risk=risk_info,
         student=student, cgpa10=cgpa10, cgpa_label=cgpa_label,
         course_attendance=course_attendance, sgpa_history=sgpa_history,
         improvements=improvements, course_marks=course_marks, avg_marks=avg_marks,
@@ -597,4 +749,4 @@ def export_admin_departments():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1")

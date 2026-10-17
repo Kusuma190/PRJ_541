@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EduMentor - Faculty Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -28,29 +29,69 @@
   th { text-align: left; color: #666; font-size: 13px; padding: 8px; border-bottom: 1px solid #eee; }
   td { padding: 8px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   .note { background: #fff8e1; border-left: 4px solid #f9a825; padding: 10px 15px; font-size: 13px; margin-top: 10px; color: #665; }
+  ul.notif { list-style: none; padding: 0; }
+  ul.notif li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  ul.notif li a { color: #1a3e8c; font-weight: 600; text-decoration: none; }
+
+  /* ---------- Responsive layout (phones and tablets) ---------- */
+  .topbar { display: none; }
+  .scrim { display: none; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart-box { position: relative; width: 100%; height: 280px; }
+  .sidebar { overflow-y: auto; }
+  @media (max-width: 768px) {
+    body { display: block; }
+    .topbar { display: flex; align-items: center; gap: 12px; position: fixed; top: 0; left: 0; right: 0;
+              height: 54px; padding: 0 14px; background: #1a3e8c; color: white; z-index: 30; }
+    .topbar button { background: none; border: 1px solid rgba(255,255,255,0.6); color: white; font-size: 20px;
+                     line-height: 1; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+    .topbar .brand { font-weight: bold; font-size: 18px; }
+    .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; width: 250px; z-index: 40; }
+    .sidebar.open { transform: translateX(0); }
+    .scrim.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 35; }
+    .main { margin-left: 0; padding: 70px 14px 24px; width: 100%; }
+    .header { flex-wrap: wrap; gap: 8px; }
+    .header h1 { font-size: 18px; }
+    .cards { gap: 12px; margin-bottom: 18px; }
+    .card { min-width: 140px; padding: 14px; }
+    .card .value { font-size: 22px; }
+    .panel { padding: 14px; margin-bottom: 18px; }
+    .charts-row .panel { min-width: 100%; max-width: 100% !important; }
+    .chart-box { height: 240px; }
+    .profile-row .label { width: 110px; }
+    th, td { padding: 6px; font-size: 13px; white-space: nowrap; }
+    ul.notif li { flex-direction: column; gap: 2px; }
+    ul.reports li { flex-direction: column; gap: 4px; }
+  }
 </style>
 </head>
 <body>
+<div class="topbar"><button type="button" aria-label="Menu" onclick="toggleMenu()">&#9776;</button><span class="brand">EduMentor</span></div>
+<div class="scrim" id="scrim" onclick="toggleMenu()"></div>
 
 <div class="sidebar">
   <h2>EduMentor</h2>
   <a onclick="showSection('dashboard', this)" class="active">Dashboard</a>
   <a onclick="showSection('myclasses', this)">My Classes</a>
+  <a onclick="showSection('attendance', this)">Attendance</a>
   <a onclick="showSection('students', this)">Students</a>
   <a onclick="showSection('reports', this)">Reports</a>
-   <a href="/logout">Logout</a>
+  <a href="/logout">Logout</a>
 </div>
 
 <div class="main">
   <div class="header">
     <h1>Welcome, Dr. Faculty ({{ dept_name }} Department)</h1>
-    <form method="get">
-      <select name="dept" onchange="this.form.submit()">
-        {% for d in all_departments %}
-        <option value="{{ d }}" {{ "selected" if d == dept_name else "" }}>{{ d }}</option>
-        {% endfor %}
-      </select>
-    </form>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <span style="background:#1a3e8c; color:white; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;">FACULTY</span>
+      <form method="get">
+        <select name="dept" onchange="this.form.submit()">
+          {% for d in all_departments %}
+          <option value="{{ d }}" {{ "selected" if d == dept_name else "" }}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
   </div>
 
   <div id="dashboard" class="section active">
@@ -68,22 +109,45 @@
         <div class="value" style="color:#d9534f;">{{ stats.at_risk or 0 }}</div>
       </div>
     </div>
+    <div class="panel">
+      <h3>Quick Summary</h3>
+      <p style="color:#444; line-height:1.6;">
+        {{ dept_name }} has {{ stats.total }} students with an average attendance of {{ avg_att }}%.
+        {{ stats.at_risk or 0 }} students are currently flagged at-risk by the prediction model —
+        see the Attendance tab for details, or export a report from the Reports tab.
+      </p>
+    </div>
+  </div>
 
+  <div id="myclasses" class="section">
+    <div class="panel">
+      <h3>My Classes ({{ dept_name }})</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Course</th><th>Faculty</th></tr>
+        {% for c in my_classes %}
+        <tr><td>{{ c.course_name }}</td><td>{{ c.faculty_name }}</td></tr>
+        {% endfor %}
+      </table></div>
+      <div class="note">Courses and faculty assignments are synthetic — the source dataset has a single program with no course-level structure.</div>
+    </div>
+  </div>
+
+  <div id="attendance" class="section">
     <div class="charts-row">
       <div class="panel">
         <h3>Class Performance</h3>
-        <canvas id="courseChart" height="180"></canvas>
+        <div class="chart-box"><canvas id="courseChart"></canvas></div>
         <div class="note">Per-course attendance is simulated for this demo — the source dataset only records overall attendance.</div>
       </div>
       <div class="panel" style="max-width:320px;">
         <h3>Attendance Overview</h3>
-        <canvas id="attendanceDonut" height="180"></canvas>
+        <div class="chart-box"><canvas id="attendanceDonut"></canvas></div>
       </div>
     </div>
 
     <div class="panel">
       <h3>Students Needing Attention</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>ID</th><th>Name</th><th>Attendance</th><th>Average Marks</th></tr>
         {% for s in at_risk_students %}
         <tr>
@@ -93,28 +157,15 @@
           <td>{{ s.marks_equiv }}%</td>
         </tr>
         {% endfor %}
-      </table>
+      </table></div>
       <div class="note">"Average Marks" is derived from CGPA — the source dataset has no real per-subject marks.</div>
-    </div>
-  </div>
-
-  <div id="myclasses" class="section">
-    <div class="panel">
-      <h3>My Classes ({{ dept_name }})</h3>
-      <table>
-        <tr><th>Course</th><th>Faculty</th></tr>
-        {% for c in my_classes %}
-        <tr><td>{{ c.course_name }}</td><td>{{ c.faculty_name }}</td></tr>
-        {% endfor %}
-      </table>
-      <div class="note">Courses and faculty assignments are synthetic — the source dataset has a single program with no course-level structure.</div>
     </div>
   </div>
 
   <div id="students" class="section">
     <div class="panel">
-      <h3>Students in {{ dept_name }} (showing first 20)</h3>
-      <table>
+      <h3>Students in {{ dept_name }} (page {{ page }} of {{ total_pages }})</h3>
+      <div class="table-wrap"><table>
         <tr><th>ID</th><th>Name</th><th>Attendance</th><th>CGPA</th><th>Engagement</th></tr>
         {% for s in dept_students %}
         <tr>
@@ -125,36 +176,55 @@
           <td>{{ s.engagement_level }}</td>
         </tr>
         {% endfor %}
-      </table>
+      </table></div>
+      <div style="display:flex; justify-content:space-between; margin-top:12px;">
+        {% if page > 1 %}
+        <a href="/faculty?dept={{ dept_name }}&page={{ page - 1 }}">&larr; Previous</a>
+        {% else %}
+        <span></span>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="/faculty?dept={{ dept_name }}&page={{ page + 1 }}">Next &rarr;</a>
+        {% endif %}
+      </div>
     </div>
   </div>
 
   <div id="reports" class="section">
     <div class="panel">
       <h3>Reports</h3>
-      <ul>
-        <li>Monthly Class Performance Report</li>
-        <li>Attendance Summary</li>
-        <li>At-Risk Students Report</li>
+      <ul class="notif">
+        <li>Attendance Summary — full attendance & risk status for {{ dept_name }} <a href="/faculty/export/attendance?dept={{ dept_name }}">Download CSV</a></li>
+        <li>At-Risk Students Report — students flagged by the model in {{ dept_name }} <a href="/faculty/export/at_risk?dept={{ dept_name }}">Download CSV</a></li>
       </ul>
-      <div class="note">Report generation/export is a placeholder for this demo phase.</div>
+      <div class="note">Both reports are generated live from the current MySQL data for the selected department.</div>
     </div>
   </div>
 
 </div>
 
 <script>
+function toggleMenu() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('scrim').classList.toggle('show');
+}
+function closeMenu() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('scrim').classList.remove('show');
+}
 function showSection(id, el) {
+  closeMenu();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
   el.classList.add('active');
 }
+
 const courseCtx = document.getElementById('courseChart').getContext('2d');
 new Chart(courseCtx, {
   type: 'bar',
   data: {
-    labels: {{ course_perf | map(attribute='course_name') | list | tojson }},
+    labels: {{ course_labels | tojson }},
     datasets: [{
       label: 'Average Attendance %',
       data: {{ course_perf | map(attribute='avg_att') | list | tojson }},
@@ -162,7 +232,11 @@ new Chart(courseCtx, {
     }]
   },
   options: {
-    scales: { y: { min: 0, max: 100 } },
+    maintainAspectRatio: false,
+    scales: {
+      y: { min: 0, max: 100 },
+      x: { ticks: { maxRotation: 0, minRotation: 0 } }
+    },
     plugins: { legend: { display: false } }
   }
 });
@@ -178,6 +252,7 @@ new Chart(donutCtx, {
     }]
   },
   options: {
+    maintainAspectRatio: false,
     plugins: { legend: { position: 'bottom' } }
   }
 });

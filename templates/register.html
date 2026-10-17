@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EduMentor - Register</title>
 <style>
   * { box-sizing: border-box; font-family: Arial, sans-serif; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #1f2937; padding: 20px; }
-  .card { background: white; padding: 40px; border-radius: 12px; width: 460px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+  .card { background: white; padding: 40px; border-radius: 12px; max-width: 460px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
   .card h1 { color: #1f2937; margin-bottom: 4px; }
   .card p.sub { color: #666; font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
   input, select { width: 100%; padding: 9px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 13px; }
@@ -18,12 +19,18 @@
   .row > div { flex: 1; }
   .links { margin-top: 14px; font-size: 13px; text-align: center; color: #666; }
   .links a { color: #1a3e8c; text-decoration: none; }
+  .card { width: 100%; }
+  @media (max-width: 480px) {
+    body { padding: 12px; align-items: flex-start; }
+    .card { padding: 24px 18px; margin-top: 16px; }
+    .row { flex-direction: column; gap: 0; }
+  }
 </style>
 </head>
 <body>
   <div class="card">
     <h1>Create Account</h1>
-    <p class="sub">Demo students (S1000\u2013S2193): just enter your roll number and a password \u2014 we'll link your existing records.<br>New roll number? Fill in the academic details below and we'll generate your profile and risk prediction live.</p>
+    <p class="sub">Demo students (S1000–S2193): just enter your roll number and a password — we'll link your existing records.<br>New roll number? Fill in the academic details below and we'll generate your profile and risk prediction live.</p>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="post">
       <label>Roll Number</label>
@@ -47,7 +54,7 @@
       </div>
 
       <div class="row">
-        <div><label>Current Semester (1\u20138)</label><input type="number" name="current_semester" value="1" min="1" max="8"></div>
+        <div><label>Current Semester (1–8)</label><input type="number" name="current_semester" value="1" min="1" max="8"></div>
         <div><label>Credits Completed</label><input type="number" name="credits_completed" value="20"></div>
       </div>
 

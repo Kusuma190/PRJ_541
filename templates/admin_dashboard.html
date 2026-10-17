@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EduMentor - Admin Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
@@ -29,9 +30,42 @@
   ul.reports { list-style: none; padding: 0; }
   ul.reports li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   ul.reports li a { color: #241242; font-weight: 600; text-decoration: none; }
+
+  /* ---------- Responsive layout (phones and tablets) ---------- */
+  .topbar { display: none; }
+  .scrim { display: none; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart-box { position: relative; width: 100%; height: 280px; }
+  .sidebar { overflow-y: auto; }
+  @media (max-width: 768px) {
+    body { display: block; }
+    .topbar { display: flex; align-items: center; gap: 12px; position: fixed; top: 0; left: 0; right: 0;
+              height: 54px; padding: 0 14px; background: #241242; color: white; z-index: 30; }
+    .topbar button { background: none; border: 1px solid rgba(255,255,255,0.6); color: white; font-size: 20px;
+                     line-height: 1; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+    .topbar .brand { font-weight: bold; font-size: 18px; }
+    .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; width: 250px; z-index: 40; }
+    .sidebar.open { transform: translateX(0); }
+    .scrim.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 35; }
+    .main { margin-left: 0; padding: 70px 14px 24px; width: 100%; }
+    .header { flex-wrap: wrap; gap: 8px; }
+    .header h1 { font-size: 18px; }
+    .cards { gap: 12px; margin-bottom: 18px; }
+    .card { min-width: 140px; padding: 14px; }
+    .card .value { font-size: 22px; }
+    .panel { padding: 14px; margin-bottom: 18px; }
+    .charts-row .panel { min-width: 100%; max-width: 100% !important; }
+    .chart-box { height: 240px; }
+    .profile-row .label { width: 110px; }
+    th, td { padding: 6px; font-size: 13px; white-space: nowrap; }
+    ul.notif li { flex-direction: column; gap: 2px; }
+    ul.reports li { flex-direction: column; gap: 4px; }
+  }
 </style>
 </head>
 <body>
+<div class="topbar"><button type="button" aria-label="Menu" onclick="toggleMenu()">&#9776;</button><span class="brand">EduMentor</span></div>
+<div class="scrim" id="scrim" onclick="toggleMenu()"></div>
 
 <div class="sidebar">
   <h2>EduMentor</h2>
@@ -83,18 +117,18 @@
     <div class="charts-row">
       <div class="panel">
         <h3>Department Performance (Average CGPA, out of 10)</h3>
-        <canvas id="deptChart" height="180"></canvas>
+        <div class="chart-box"><canvas id="deptChart"></canvas></div>
         <div class="note">Department assignment is randomly simulated — the source dataset only records a single program (BCSE), with no real department field.</div>
       </div>
       <div class="panel" style="max-width:320px;">
         <h3>Overall Attendance</h3>
-        <canvas id="attendanceDonut" height="180"></canvas>
+        <div class="chart-box"><canvas id="attendanceDonut"></canvas></div>
       </div>
     </div>
 
     <div class="panel">
       <h3>Department Overview</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Department</th><th>Students</th><th>Avg Attendance</th><th>Avg CGPA (/10)</th></tr>
         {% for d in dept_perf %}
         <tr>
@@ -104,14 +138,14 @@
           <td>{{ d.avg_cgpa10 }}</td>
         </tr>
         {% endfor %}
-      </table>
+      </table></div>
     </div>
   </div>
 
   <div id="students" class="section">
     <div class="panel">
       <h3>All Students (page {{ page }} of {{ total_pages }})</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>ID</th><th>Name</th><th>Department</th><th>Attendance</th><th>CGPA</th></tr>
         {% for s in all_students %}
         <tr>
@@ -122,7 +156,7 @@
           <td>{{ s.cgpa10 }}</td>
         </tr>
         {% endfor %}
-      </table>
+      </table></div>
       <div style="display:flex; justify-content:space-between; margin-top:12px;">
         {% if page > 1 %}
         <a href="/admin?page={{ page - 1 }}">&larr; Previous</a>
@@ -139,12 +173,12 @@
   <div id="faculty" class="section">
     <div class="panel">
       <h3>All Faculty</h3>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>Name</th><th>Department</th></tr>
         {% for f in all_faculty %}
         <tr><td>{{ f.faculty_name }}</td><td>{{ f.department_name }}</td></tr>
         {% endfor %}
-      </table>
+      </table></div>
       <div class="note">Faculty records are synthetic — the source dataset has no real faculty data.</div>
     </div>
   </div>
@@ -152,7 +186,7 @@
   <div id="analytics" class="section">
     <div class="panel">
       <h3>Engagement Pattern Analysis (Deep Learning Model Output)</h3>
-      <canvas id="engagementChart" height="180"></canvas>
+      <div class="chart-box"><canvas id="engagementChart"></canvas></div>
       <div class="note">This is real model output — a neural network classifies every student's engagement level from actual study hours, social media use, and attendance data.</div>
     </div>
   </div>
@@ -172,7 +206,16 @@
 </div>
 
 <script>
+function toggleMenu() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('scrim').classList.toggle('show');
+}
+function closeMenu() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('scrim').classList.remove('show');
+}
 function showSection(id, el) {
+  closeMenu();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
@@ -191,6 +234,7 @@ new Chart(ctx, {
     }]
   },
   options: {
+    maintainAspectRatio: false,
     scales: {
       y: { min: 0, max: 10 },
       x: { ticks: { maxRotation: 0, minRotation: 0 } }
@@ -210,6 +254,7 @@ new Chart(donutCtx, {
     }]
   },
   options: {
+    maintainAspectRatio: false,
     plugins: { legend: { position: 'bottom' } }
   }
 });
@@ -226,6 +271,7 @@ new Chart(engCtx, {
     }]
   },
   options: {
+    maintainAspectRatio: false,
     scales: { x: { ticks: { maxRotation: 0, minRotation: 0 } } },
     plugins: { legend: { display: false } }
   }
