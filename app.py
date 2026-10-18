@@ -53,11 +53,14 @@ engagement_features = _load("engagement_features.pkl")
 RISK_COEF = dict(zip(risk_features, (float(c) for c in risk_model.coef_[0])))
 RISK_INTERCEPT = float(risk_model.intercept_[0])
 
-# (feature, label shown to the student, value format)
+# (feature, label shown to the student, value format, display multiplier)
+# The dataset stores GPA on a 4.0 scale, which the model was trained on. Students see
+# everything out of 10 (x 2.5), exactly like the rest of the app. This is display only:
+# the model's maths and predictions are unchanged.
 EXPLAIN_FACTORS = [
-    ("attendance_pct", "Attendance", "{:.0f}%"),
-    ("study_hours", "Daily study time", "{:.1f} hrs"),
-    ("previous_sgpa_clean", "Previous SGPA", "{:.2f} / 4.0"),
+    ("attendance_pct", "Attendance", "{:.0f}%", 1.0),
+    ("study_hours", "Daily study time", "{:.1f} hrs", 1.0),
+    ("previous_sgpa_clean", "Previous SGPA", "{:.2f} / 10", 2.5),
 ]
 # Things a student can actually change: (feature, action, max value, rounding step, format).
 # Social-media time is deliberately NOT used for advice: in this survey data its link to risk
@@ -95,12 +98,12 @@ def explain_risk(student, means):
     at_risk = logit >= 0
 
     factors = []
-    for feat, label, fmt in EXPLAIN_FACTORS:
+    for feat, label, fmt, scale in EXPLAIN_FACTORS:
         effect = RISK_COEF[feat] * (x[feat] - float(means[feat]))
         factors.append({
             "label": label,
-            "yours": fmt.format(x[feat]),
-            "average": fmt.format(float(means[feat])),
+            "yours": fmt.format(x[feat] * scale),
+            "average": fmt.format(float(means[feat]) * scale),
             "direction": "raises" if effect > 0 else "lowers",
             "size": abs(effect),
         })
@@ -260,7 +263,8 @@ def register():
             study_hours = float(request.form.get("study_hours", 2))
             social_media_hours = float(request.form.get("social_media_hours", 2))
             credits_completed = float(request.form.get("credits_completed", 20))
-            previous_sgpa = float(request.form.get("previous_sgpa", 2.5))
+            # Entered out of 10; the database and model use the dataset's 4.0 scale (divide by 2.5)
+            previous_sgpa = max(0.0, min(float(request.form.get("previous_sgpa", 6.25)), 10.0)) / 2.5
         except ValueError:
             cursor.close()
             conn.close()
